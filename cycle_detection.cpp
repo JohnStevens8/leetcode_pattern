@@ -1,194 +1,234 @@
-Corrected Fibonacci Mod Code
+ 1. House Robber in Circular Array (Corrected)
 
-class FibonacciMod {
+Actually, let me provide a simpler, more realistic version:
+
+// Problem: Rob houses in circular array, but with state transitions
+class CircularRobberSimple {
 public:
-    long long fibMod(long long n, int m) {
-        if (n <= 1) return n % m;
-        
-        // State: (F[i-1] % m, F[i] % m)
-        map<pair<int,int>, int> seen;
-        
-        int prev = 0, curr = 1;
-        vector<int> sequence = {0, 1};
-        
-        for (int i = 2; i <= n; i++) {
-            int next = (prev + curr) % m;
-            pair<int,int> state = {curr, next};
-            
-            if (seen.count(state)) {
-                // Cycle detected!
-                int cycleStart = seen[state];
-                int cycleLen = i - cycleStart;
-                
-                long long pos = cycleStart + (n - cycleStart) % cycleLen;
-                return sequence[pos];
-            }
-            
-            seen[state] = i;
-            sequence.push_back(next);
-            prev = curr;
-            curr = next;
-        }
-        
-        return curr;
-    }
-};
-
-Key corrections:
-
-Removed redundant if (n >= cycleStart) check
-Added % m to handle edge case when n = 1 and m is small
-Cleaner logic flow
-
-
-🎯 More Cycle Detection Problems
-
-1. House Robber in Circular Array (Infinite Rounds)
-
-// Problem: Rob houses in circular array for N rounds, maximize money
-// State: (current_position, money_state_pattern)
-
-class CircularRobber {
-public:
-    int maxMoney(vector<int>& houses, int rounds) {
+    int maxMoneyAfterRounds(vector<int>& houses, int rounds) {
         int n = houses.size();
-        map<pair<int,int>, int> seen; // {pos, last_robbed} -> round
-        vector<int> maxAtRound;
+        if (n == 0 || rounds == 0) return 0;
         
-        int pos = 0, maxSoFar = 0;
-        bool lastRobbed = false;
+        // State: current position in array
+        map<int, pair<int, int>> seen; // pos -> {round, money}
         
-        for (int round = 0; round < rounds; round++) {
-            // Process one complete round
-            int roundMax = robOneRound(houses, pos, lastRobbed);
-            maxSoFar += roundMax;
+        int pos = 0, totalMoney = 0;
+        
+        for (int round = 1; round <= rounds; round++) {
+            // Simple strategy: rob every other house in one round
+            int roundMoney = 0;
+            for (int i = 0; i < n; i += 2) {
+                roundMoney += houses[(pos + i) % n];
+            }
+            pos = (pos + 1) % n; // Move starting position
+            totalMoney += roundMoney;
             
-            pair<int,int> state = {pos, lastRobbed};
-            if (seen.count(state)) {
-                // Cycle detected - calculate remaining rounds
-                int cycleStart = seen[state];
-                int cycleLen = round - cycleStart;
-                int cycleGain = maxSoFar - maxAtRound[cycleStart];
+            if (seen.count(pos)) {
+                auto [startRound, startMoney] = seen[pos];
+                int cycleLen = round - startRound;
+                int cycleGain = totalMoney - startMoney;
                 
-                int remaining = rounds - round - 1;
+                int remaining = rounds - round;
                 int fullCycles = remaining / cycleLen;
                 
-                return maxSoFar + fullCycles * cycleGain + 
-                       handleRemainder(remaining % cycleLen);
+                return totalMoney + fullCycles * cycleGain;
             }
             
-            seen[state] = round;
-            maxAtRound.push_back(maxSoFar);
+            seen[pos] = {round, totalMoney};
         }
-        return maxSoFar;
+        
+        return totalMoney;
     }
 };
 
-2. Matrix Power (A^N)
-
-// Problem: Compute A^N mod M efficiently using cycle detection
-// State: Current matrix state
+🔧 2. Matrix Power A^N (Corrected)
 
 class MatrixPower {
+private:
+    vector<vector<long long>> multiply(const vector<vector<long long>>& A, 
+                                      const vector<vector<long long>>& B, int MOD) {
+        int n = A.size();
+        vector<vector<long long>> C(n, vector<long long>(n, 0));
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                for (int k = 0; k < n; k++) {
+                    C[i][j] = (C[i][j] + A[i][k] * B[k][j]) % MOD;
+                }
+            }
+        }
+        return C;
+    }
+    
+    string matrixToString(const vector<vector<long long>>& mat) {
+        string result;
+        for (const auto& row : mat) {
+            for (long long val : row) {
+                result += to_string(val) + ",";
+            }
+            result += ";";
+        }
+        return result;
+    }
+    
 public:
-    vector<vector<int>> matrixPower(vector<vector<int>>& A, long long N, int MOD) {
-        map<vector<vector<int>>, int> seen;
-        vector<vector<vector<int>>> powers;
+    vector<vector<long long>> matrixPower(vector<vector<long long>>& A, long long N, int MOD) {
+        if (N == 0) {
+            int n = A.size();
+            vector<vector<long long>> I(n, vector<long long>(n, 0));
+            for (int i = 0; i < n; i++) I[i][i] = 1;
+            return I;
+        }
+        if (N == 1) return A;
+        
+        // Use string representation for state
+        map<string, pair<long long, vector<vector<long long>>>> seen;
         
         auto current = A;
-        powers.push_back(current);
-        
-        for (int i = 1; i < N; i++) {
-            current = multiply(current, A, MOD);
+        for (long long power = 1; power < N; power++) {
+            string state = matrixToString(current);
             
-            if (seen.count(current)) {
-                // Cycle detected!
-                int cycleStart = seen[current];
-                int cycleLen = i - cycleStart;
+            if (seen.count(state)) {
+                auto [startPower, startMatrix] = seen[state];
+                long long cycleLen = power - startPower;
                 
-                long long pos = cycleStart + (N - 1 - cycleStart) % cycleLen;
-                return powers[pos];
+                if (cycleLen > 0) {
+                    long long remaining = N - power;
+                    long long pos = startPower + (remaining % cycleLen);
+                    
+                    // Find matrix at position pos
+                    for (auto& [key, value] : seen) {
+                        if (value.first == pos) {
+                            return value.second;
+                        }
+                    }
+                }
             }
             
-            seen[current] = i;
-            powers.push_back(current);
+            seen[state] = {power, current};
+            current = multiply(current, A, MOD);
         }
         
         return current;
     }
 };
 
-3. Digital Root Sequence
-
-// Problem: Find the Nth term in digital root sequence
-// Digital root: sum digits until single digit
-// Sequence: 1,2,3,4,5,6,7,8,9,1,2,3,4,5,6,7,8,9,...
+🔧 3. Digital Root Sequence (Corrected)
 
 class DigitalRootSequence {
+private:
+    int getDigitalRoot(long long n) {
+        if (n == 0) return 0;
+        return 1 + (n - 1) % 9;
+    }
+    
 public:
     int nthDigitalRoot(long long n) {
-        // This has obvious cycle, but let's detect it programmatically
-        map<int, int> seen;
-        vector<int> sequence;
+        // Digital root sequence: 1,2,3,4,5,6,7,8,9,1,2,3,4,5,6,7,8,9,...
+        // This has obvious cycle of length 9 starting from position 1
         
-        for (int i = 1; i <= n; i++) {
+        if (n <= 0) return 0;
+        
+        // Direct calculation - no cycle detection needed!
+        return 1 + (n - 1) % 9;
+        
+        // But if we want to demonstrate cycle detection:
+        /*
+        map<int, long long> seen;
+        
+        for (long long i = 1; i <= n; i++) {
             int digitalRoot = getDigitalRoot(i);
             
-            if (seen.count(digitalRoot) && sequence.size() >= 9) {
-                // Cycle detected (after we have enough data)
-                int cycleStart = seen[digitalRoot];
-                int cycleLen = i - cycleStart;
+            if (seen.count(digitalRoot) && i > 9) {
+                long long cycleStart = seen[digitalRoot];
+                long long cycleLen = i - cycleStart;
                 
-                if (cycleLen > 0 && n > cycleStart) {
+                if (n > cycleStart) {
                     long long pos = cycleStart + (n - cycleStart - 1) % cycleLen;
-                    return sequence[pos];
+                    return getDigitalRoot(pos);
                 }
             }
             
-            seen[digitalRoot] = i;
-            sequence.push_back(digitalRoot);
+            if (i <= 9) seen[digitalRoot] = i;
         }
         
-        return sequence.back();
-    }
-    
-private:
-    int getDigitalRoot(int n) {
-        return n == 0 ? 0 : 1 + (n - 1) % 9;
+        return getDigitalRoot(n);
+        */
     }
 };
 
-4. Conway's Game of Life (Stable State)
-
-// Problem: Simulate Game of Life for N generations, detect cycles/stable states
-// State: Current board configuration
+🔧 4. Conway's Game of Life (Corrected)
 
 class GameOfLife {
+private:
+    string boardToString(const vector<vector<int>>& board) {
+        string result;
+        for (const auto& row : board) {
+            for (int cell : row) {
+                result += to_string(cell);
+            }
+        }
+        return result;
+    }
+    
+    vector<vector<int>> nextGeneration(const vector<vector<int>>& board) {
+        int m = board.size(), n = board[0].size();
+        vector<vector<int>> next(m, vector<int>(n, 0));
+        
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                int live = 0;
+                for (int di = -1; di <= 1; di++) {
+                    for (int dj = -1; dj <= 1; dj++) {
+                        if (di == 0 && dj == 0) continue;
+                        int ni = i + di, nj = j + dj;
+                        if (ni >= 0 && ni < m && nj >= 0 && nj < n) {
+                            live += board[ni][nj];
+                        }
+                    }
+                }
+                
+                if (board[i][j] == 1) {
+                    next[i][j] = (live == 2 || live == 3) ? 1 : 0;
+                } else {
+                    next[i][j] = (live == 3) ? 1 : 0;
+                }
+            }
+        }
+        return next;
+    }
+    
 public:
     vector<vector<int>> simulate(vector<vector<int>>& board, int N) {
-        map<vector<vector<int>>, int> seen;
-        vector<vector<vector<int>>> history;
+        if (N == 0) return board;
         
+        map<string, pair<int, vector<vector<int>>>> seen;
         auto current = board;
         
         for (int gen = 0; gen < N; gen++) {
-            if (seen.count(current)) {
-                // Cycle or stable state detected!
-                int cycleStart = seen[current];
-                int cycleLen = gen - cycleStart;
+            string state = boardToString(current);
+            
+            if (seen.count(state)) {
+                auto [startGen, startBoard] = seen[state];
+                int cycleLen = gen - startGen;
                 
                 if (cycleLen == 0) {
-                    // Stable state - no more changes
+                    // Stable state
                     return current;
                 } else {
                     // Periodic cycle
-                    int pos = cycleStart + (N - cycleStart) % cycleLen;
-                    return history[pos];
+                    int remaining = N - gen;
+                    int pos = startGen + (remaining % cycleLen);
+                    
+                    // Find board at position pos
+                    for (auto& [key, value] : seen) {
+                        if (value.first == pos) {
+                            return value.second;
+                        }
+                    }
                 }
             }
             
-            seen[current] = gen;
-            history.push_back(current);
+            seen[state] = {gen, current};
             current = nextGeneration(current);
         }
         
@@ -196,114 +236,59 @@ public:
     }
 };
 
-5. Collatz Sequence Length
-
-// Problem: Find length of Collatz sequence for very large N
-// State: Current number in sequence
+🔧 5. Collatz Sequence Length (Corrected)
 
 class CollatzSequence {
+private:
+    map<long long, long long> memo;
+    
 public:
     long long collatzLength(long long n) {
-        map<long long, long long> seen; // number -> steps_taken
+        if (n == 1) return 0;
+        if (memo.count(n)) return memo[n];
         
-        long long current = n;
+        long long original = n;
         long long steps = 0;
         
-        while (current != 1) {
-            if (seen.count(current)) {
-                // We've entered a previously computed path
-                // But Collatz always goes to 1, so this is just optimization
-                return steps + seen[current];
-            }
-            
-            seen[current] = steps;
-            
-            if (current % 2 == 0) {
-                current /= 2;
+        // Follow sequence until we hit a memoized value or 1
+        while (n != 1 && !memo.count(n)) {
+            if (n % 2 == 0) {
+                n /= 2;
             } else {
-                current = 3 * current + 1;
+                n = 3 * n + 1;
             }
             steps++;
             
             // Overflow protection
-            if (current > 1e18) break;
+            if (n > 1e15) return -1;
         }
         
-        return steps;
+        long long result = steps + (n == 1 ? 0 : memo[n]);
+        memo[original] = result;
+        return result;
     }
 };
 
-6. Josephus Problem Variant
-
-// Problem: N people in circle, eliminate every Kth person, repeat for M rounds
-// State: (current_position, people_alive_pattern)
+🔧 6. Josephus Problem Variant (Corrected)
 
 class JosephusCycle {
 public:
     int lastSurvivor(int N, int K, int rounds) {
-        map<pair<int, vector<bool>>, int> seen;
+        // Simple version: eliminate K-th person in each round
+        vector<int> people;
+        for (int i = 0; i < N; i++) people.push_back(i);
         
-        vector<bool> alive(N, true);
-        int pos = 0, aliveCount = N;
+        int pos = 0;
         
-        for (int round = 0; round < rounds && aliveCount > 1; round++) {
-            // Eliminate one person this round
-            int steps = 0;
-            while (steps < K) {
-                if (alive[pos]) steps++;
-                if (steps < K) pos = (pos + 1) % N;
-            }
+        for (int round = 0; round < rounds && people.size() > 1; round++) {
+            // Find K-th person from current position
+            pos = (pos + K - 1) % people.size();
+            people.erase(people.begin() + pos);
             
-            alive[pos] = false;
-            aliveCount--;
-            
-            pair<int, vector<bool>> state = {pos, alive};
-            if (seen.count(state)) {
-                // Pattern detected - calculate final result
-                // ... cycle detection logic
-            }
-            
-            seen[state] = round;
+            // Adjust position after removal
+            if (pos >= people.size()) pos = 0;
         }
         
-        // Find last survivor
-        for (int i = 0; i < N; i++) {
-            if (alive[i]) return i;
-        }
-        return -1;
-    }
-};
-
-🎯 Common Cycle Detection Pattern
-
-template<typename State, typename Result>
-class CycleDetector {
-    map<State, int> seen;
-    vector<Result> history;
-    
-public:
-    Result solve(int maxSteps) {
-        State current = getInitialState();
-        
-        for (int step = 0; step < maxSteps; step++) {
-            if (seen.count(current)) {
-                // CYCLE DETECTED!
-                int cycleStart = seen[current];
-                int cycleLen = step - cycleStart;
-                
-                int remaining = maxSteps - step;
-                int fullCycles = remaining / cycleLen;
-                int leftover = remaining % cycleLen;
-                
-                return calculateResult(cycleStart, cycleLen, 
-                                     fullCycles, leftover);
-            }
-            
-            seen[current] = step;
-            history.push_back(getCurrentResult());
-            current = getNextState(current);
-        }
-        
-        return getCurrentResult();
+        return people.empty() ? -1 : people[0];
     }
 };
